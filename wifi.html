@@ -1,0 +1,35 @@
+<html>
+<head>
+</head>
+
+<body>
+<h2>Wifi</h2>
+
+</body>
+
+<script>
+WifiSettings = function() {
+    self = this;
+    self.wifi = {};
+    self.networks = [];
+
+    this.connect = function() {
+        tizen.wifi.connect();
+    }
+
+    this.scan = function() {
+        tizen.wifi.scan();
+    }
+
+}
+
+wifiInit = function() {
+    Wifi = {};
+    w = new WifiSettings();
+    connect = w.connect();
+}
+
+</script>
+
+</html>
+
