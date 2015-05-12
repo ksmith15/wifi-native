@@ -1,23 +1,25 @@
 LIB			= 	libwifi_extension
 CXXFLAGS	=	-O -g -I./ $(shell pkg-config --cflags dbus-1) $(shell pkg-config --cflags gio-2.0) -std=c++11 \
 				-fpermissive -fPIC
-LDFLAGS		=	-Wl,--whole-archive gdbus/libgdbus.a build/libwifi_extension.a -Wl,--no-whole-archive \
-				-shared -Wl,-soname,$(LIB).so -o $(LIB).so -g $(shell pkg-config --libs dbus-1) $(shell pkg-config --libs gio-2.0)
+#LDFLAGS		=	-Wl,--whole-archive gdbus/libgdbus.a build/libwifi_extension.a -Wl,--no-whole-archive
+LDFLAGS		=	-Wl,--whole-archive build/libwifi_extension.a -Wl,--no-whole-archive \
+				-shared -Wl,-soname,$(LIB).so -o $(LIB).so -g \
+				$(shell pkg-config --libs dbus-1) $(shell pkg-config --libs gio-2.0)
 SOURCES		=	src/WifiMaster.cpp src/wifi_extension.cpp src/wifi_instance.cpp src/wifi_api.cpp common/extension.cpp
 OBJECTS		= $(SOURCES:.cpp=.o)
 
 all: $(LIB)
 
-$(LIB): prepare gdbus wifi_api.cpp wifi_lib
+$(LIB): prepare wifi_api.cpp wifi_lib
 	$(CXX) $(CXXFLAGS) -shared -o build/$(LIB) $(LDFLAGS)
 
 prepare:
 	mkdir -p build
 
-gdbus: libgdbus.a
+#gdbus: libgdbus.a
 
-libgdbus.a:
-	$(MAKE) -C gdbus
+#libgdbus.a:
+#	$(MAKE) -C gdbus
 
 wifi_api.cpp :
 	python tools/generate_api.py src/wifi_api.js kSource_wifi_api src/wifi_api.cpp
@@ -36,7 +38,6 @@ clean:
 	$(RM) $(OBJECTS)
 	$(RM) $(LIB).so
 	$(RM) src/wifi_api.cpp
-	$(MAKE) -C gdbus clean
 
 .PHONY: all prepare clean
 

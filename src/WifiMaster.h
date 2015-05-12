@@ -37,7 +37,7 @@ public:
     int  Scan();
     void Connect( const char* path );
     void Disconnect( const char* path );
-    int  GetNetworks();
+    int  GetServices();
     void GetNetworkInfo( std::string& netinfo );
     int  Deactivate();
 

@@ -19,6 +19,19 @@
  */
 
 #include "common/extension.h"
+#include "common/picojson.h"
+
+#include <gio/gio.h>
+#include <string>
+#include <map>
+
+#define G_CALLBACK_1(METHOD, SENDER, ARG0)                                     \
+    static void METHOD ## Thunk(SENDER sender, ARG0 res, gpointer userdata) {  \
+        return reinterpret_cast<WifiInstance*>(userdata)->METHOD(sender,       \
+                                                                 res);         \
+    }                                                                          \
+                                                                               \
+    void METHOD(SENDER, ARG0)
 
 #define CONNMAN_SERVICE "net.connman"
 #define CONNMAN_AGENT_INTERFACE CONNMAN_SERVICE ".Agent"
@@ -34,27 +47,58 @@ class WifiInstance : public common::Instance
 {
 public:
 
-    WifiInstance() {} //: wifi_mgr_(0), network_(0) {}
+    WifiInstance()
+    : tech_proxy_(0), service_proxy_(0), manager_proxy_(0), agent_proxy_(0)
+    {}
+
     virtual ~WifiInstance();
-    bool initialize();
+    void initialize();
+
+    G_CALLBACK_1( OnAgentProxyCreated, GObject*, GAsyncResult*);
+    G_CALLBACK_1( OnManagerProxyCreated, GObject*, GAsyncResult*);
+    G_CALLBACK_1( OnServiceProxyCreated, GObject*, GAsyncResult*);
+    G_CALLBACK_1( OnTechnologyProxyCreated, GObject*, GAsyncResult*);
+    G_CALLBACK_1( OnManagerCreated, GObject*, GAsyncResult*);
+
+    G_CALLBACK_1( OnDBusObjectAdded, GDBusObjectManager*, GDBusObject*);
+    G_CALLBACK_1( OnDBusObjectRemoved, GDBusObjectManager*, GDBusObject*);
 
 private:
 
-    DBusConnection* connection_;
-    DBusConnection* connection_session_;
+//    DBusConnection* connection_;
+//    DBusConnection* connection_session_;
 
-    void ParseMessage( std::string& response, const char* message );
+//    void ParseMessage( std::string& response, const char* message );
 
     virtual void HandleMessage( const char* msg );
     virtual void HandleSyncMessage( const char* msg );
 
-    void HandleActivate();
-    void HandleDeactivate();
-    void HandleScan();
+    void HandleActivate( const picojson::value& msg );
+    void HandleDeactivate( const picojson::value& msg );
+    void HandleScan( const picojson::value& msg );
     int  GetScanResults();
-    void HandleGetNetworks();
-    void HandleGetNetworkInfo();
-    void HandleConnect();
+    void HandleGetServices( const picojson::value& msg );
+    void HandleGetNetworkInfo( const picojson::value& msg );
+    void HandleConnect( const picojson::value& msg );
+    void HandleDisconnect( const picojson::value& msg );
+
+    static void OnPropertiesChanged( GDBusProxy*, GVariant* changed_properties, const gchar* const* invalidated_properties, gpointer user_data );
+    static void CacheManagedObject( gpointer data, gpointer user_data );
+
+    GDBusObjectManager* object_manager_;
+
+    GDBusProxy* tech_proxy_;
+    GDBusProxy* service_proxy_;
+    GDBusProxy* manager_proxy_;
+    GDBusProxy* agent_proxy_;
+
+    std::string activate_callback_id_;
+    std::string deactivate_callback_id_;
+    std::string scan_callback_id_;
+    std::string connect_callback_id_;
+    std::string disconnect_callback_id_;
+
+    std::map<std::string, std::string> agent_info_;
 
 //    Tizen::Net::Wifi::WifiManager*  wifi_mgr_;
 //    Tizen::Base::Collection::IList* network_;

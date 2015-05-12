@@ -106,7 +106,7 @@ list_services( DBusMessageIter* iter, const char* error, void* user_data )
 }
 
 int
-WifiMaster::GetNetworks()
+WifiMaster::GetServices()
 {
     return __connmanctl_dbus_method_call(
             connection_,
