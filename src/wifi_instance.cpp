@@ -112,17 +112,6 @@ WifiInstance::initialize()
             OnAgentProxyCreatedThunk,
             this );
 
-    g_dbus_object_manager_client_new_for_bus( G_BUS_TYPE_SYSTEM,
-            G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,
-            "net.connman",
-            "/",
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            OnManagerCreatedThunk,
-            this );
-
 //    WF_MASTER->Activate();
 //    WF_MASTER->Scan();
 //    return true;
@@ -158,28 +147,50 @@ WifiInstance::OnAgentProxyCreated( GObject*, GAsyncResult* result )
 }
 
 void
-WifiInstance::OnManagerCreated( GObject*, GAsyncResult* result )
+WifiInstance::OnManagerProxyCreated( GObject*, GAsyncResult* result )
 {
     GError* error = 0;
-    object_manager_ = g_dbus_object_manager_client_new_for_bus_finish( result, &error );
-
-    if ( !object_manager_ )
+    manager_proxy_ = g_dbus_proxy_new_for_bus_finish( result, &error );
+    if ( !manager_proxy_ )
     {
-        g_printerr( "## ObjectManager creation error: %s\n", error->message );
+        GetDefaultReply();
+        g_printerr( "\n\n## manager_proxy_ creation error: %s\n", error->message );
         g_error_free( error );
+        return;
     }
-    else
-    {
-        g_signal_connect( object_manager_, "object-added",
-            G_CALLBACK(WifiInstance::OnDBusObjectAddedThunk), this );
-        g_signal_connect( object_manager_, "object-removed",
-            G_CALLBACK(WifiInstance::OnDBusObjectRemovedThunk), this );
-
-        GList* managed_objects = g_dbus_object_manager_get_objects( object_manager_ );
-        g_list_foreach( managed_objects, CacheManagedObject, this );
-        g_list_free( managed_objects );
-    }
+    g_signal_connect( manager_proxy_, "g-signal", G_CALLBACK( WifiInstance::OnSignal ), this );
 }
+
+void
+WifiInstance::OnServiceProxyCreated( GObject*, GAsyncResult* result )
+{
+    GError* error = 0;
+    service_proxy_ = g_dbus_proxy_new_for_bus_finish( result, &error );
+    if ( !agent_proxy_ )
+    {
+        GetDefaultReply();
+        g_printerr( "\n\n## service_proxy_ creation error: %s\n", error->message );
+        g_error_free( error );
+        return;
+    }
+    g_signal_connect( service_proxy_, "g-signal", G_CALLBACK( WifiInstance::OnSignal ), this );
+}
+
+void
+WifiInstance::OnTechnologyProxyCreated( GObject*, GAsyncResult* result )
+{
+    GError* error = 0;
+    tech_proxy_ = g_dbus_proxy_new_for_bus_finish( result, &error );
+    if ( !tech_proxy_ )
+    {
+        GetDefaultReply();
+        g_printerr( "\n\n## tech_proxy_ creation error: %s\n", error->message );
+        g_error_free( error );
+        return;
+    }
+    g_signal_connect( tech_proxy_, "g-signal", G_CALLBACK( WifiInstance::OnSignal ), this );
+}
+
 
 void
 WifiInstance::HandleMessage( const char* message )
@@ -289,8 +300,50 @@ WifiInstance::HandleGetServices( const picojson::value& message )
             NULL,                       // parameters
             G_DBUS_CALL_FLAGS_NONE,     // flags
             20000,                      // timeout
-            NULL, NULL, NULL );
+            NULL,
+            OnGetServicesThunk,
+            NULL );
     }
+}
+
+void
+WifiInstance::OnGetServices( GObject* object, GAsyncResult* result )
+{
+    GError* error = 0;
+    GVariant* fin_result = g_dbus_proxy_call_finish( service_proxy_, result, &error );
+
+    if ( !fin_result )
+    {
+        GetDefaultReply();
+        g_printerr( "\n\nError GetServices: %s\n", error->message );
+        g_error_free( error );
+        return;
+    }
+
+    picojson::value::object o;
+    o[ "cmd" ] = picojson::value("");
+
+    const gchar* key;
+    GVariantIter* it;
+    GVariantIter* dit;
+    char* value_str;
+    g_variant_get( fin_result, "a(sa{sv})", &it );
+    while ( g_variant_iter_loop( it, "sa{sv}", &key, &dit ))
+    {
+        picojson::value::array properties;
+        const gchar* prop;
+        GVariant* val;
+        while ( g_variant_iter_loop( dit, "{sv}", &prop, &val ))
+        {
+            picojson::value::object entry;
+            entry[prop] = picojson::value( g_variant_get_string( val, NULL ));
+            properties.push_back( picojson::value( entry ));
+        }
+        o[key] = picojson::value( properties );
+    }
+
+    InternalPostMessage( picojson::value( o ));
+    GetDefaultReply();
 }
 
 void
@@ -329,5 +382,53 @@ void
 WifiInstance::HandleGetNetworkInfo( const picojson::value& message )
 {
 //    WifiBssInfo* info = static_cast<WifiBssInfo*>(network_->GetAt( index ));
+}
+
+void
+WifiInstance::OnSignal( GDBusProxy* proxy, gchar* sender, gchar* signal, GVariant* parameters, gpointer data )
+{
+}
+
+void
+WifiInstance::GetDefaultReply()
+{
+    picojson::value::object o;
+    o["reply_id"] = picojson::value( default_reply_id_ );
+    if ( !is_js_context_initialized_ )
+    {
+        is_js_context_initialized_ = true;
+    }
+    InternalSetSyncReply( picojson::value(o) );
+    default_reply_id_.clear();
+}
+
+void
+WifiInstance::FlushPendingMessages()
+{
+    if ( !msg_queue_.empty() )
+    {
+        MessageQueue::iterator it;
+        for ( it = msg_queue_.begin(); it != msg_queue_.end(); ++it )
+        {
+            PostMessage( (*it).serialize().c_str() );
+        }
+    }
+}
+
+void
+WifiInstance::InternalPostMessage( picojson::value v )
+{
+    if ( !is_js_context_initialized_ )
+    {
+        msg_queue_.push_back( v );
+        return;
+    }
+}
+
+void
+WifiInstance::InternalSetSyncReply( picojson::value v )
+{
+    SendSyncReply( v.serialize().c_str() );
+    FlushPendingMessages();
 }
 

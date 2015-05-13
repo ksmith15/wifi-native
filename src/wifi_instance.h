@@ -33,6 +33,27 @@
                                                                                \
     void METHOD(SENDER, ARG0)
 
+#define G_CALLBACK_CANCELLABLE_1(METHOD, SENDER, ARG0)                         \
+    static void METHOD ## Thunk(SENDER sender, ARG0 res, gpointer userdata) {  \
+        ContextCancellable* context =                                          \
+            reinterpret_cast<ContextCancellable*>(userdata);                   \
+        if (context->cancellable                                               \
+            && g_cancellable_is_cancelled(context->cancellable))               \
+            goto done;                                                         \
+        reinterpret_cast<WifiInstance*>(context->userdata)->METHOD(sender,     \
+                                                                   res);       \
+    done:                                                                      \
+        delete context;                                                        \
+    }                                                                          \
+                                                                               \
+  void METHOD(SENDER, ARG0);
+
+struct ContextCancellable
+{
+    GCancellable* cancellable;
+    void*         userdata;
+};
+
 #define CONNMAN_SERVICE "net.connman"
 #define CONNMAN_AGENT_INTERFACE CONNMAN_SERVICE ".Agent"
 #define CONNMAN_MANAGER_INTERFACE CONNMAN_SERVICE ".Manager"
@@ -60,8 +81,10 @@ public:
     G_CALLBACK_1( OnTechnologyProxyCreated, GObject*, GAsyncResult*);
     G_CALLBACK_1( OnManagerCreated, GObject*, GAsyncResult*);
 
-    G_CALLBACK_1( OnDBusObjectAdded, GDBusObjectManager*, GDBusObject*);
-    G_CALLBACK_1( OnDBusObjectRemoved, GDBusObjectManager*, GDBusObject*);
+    G_CALLBACK_CANCELLABLE_1( OnGetServices, GObject*, GAsyncResult*);
+
+//    G_CALLBACK_1( OnDBusObjectAdded, GDBusObjectManager*, GDBusObject*);
+//    G_CALLBACK_1( OnDBusObjectRemoved, GDBusObjectManager*, GDBusObject*);
 
 private:
 
@@ -83,9 +106,22 @@ private:
     void HandleDisconnect( const picojson::value& msg );
 
     static void OnPropertiesChanged( GDBusProxy*, GVariant* changed_properties, const gchar* const* invalidated_properties, gpointer user_data );
-    static void CacheManagedObject( gpointer data, gpointer user_data );
+    // static void CacheManagedObject( gpointer data, gpointer user_data );
+    static void OnSignal( GDBusProxy* proxy, gchar* sender, gchar* signal, GVariant* parameters, gpointer data );
 
-    GDBusObjectManager* object_manager_;
+//    void OnGetServices( GObject* object, GAsyncResult* result );
+
+    void GetDefaultReply();
+    void FlushPendingMessages();
+    void InternalPostMessage( picojson::value v );
+    void InternalSetSyncReply( picojson::value v );
+
+    typedef std::vector<picojson::value> MessageQueue;
+    MessageQueue msg_queue_;
+    std::map<std::string, std::string> callbacks_map_;
+
+    bool is_js_context_initialized_;
+    std::string default_reply_id_;
 
     GDBusProxy* tech_proxy_;
     GDBusProxy* service_proxy_;
