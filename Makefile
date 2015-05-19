@@ -5,7 +5,7 @@ CXXFLAGS	=	-O -g -I./ $(shell pkg-config --cflags dbus-1) $(shell pkg-config --c
 LDFLAGS		=	-Wl,--whole-archive build/libwifi_extension.a -Wl,--no-whole-archive \
 				-shared -Wl,-soname,$(LIB).so -o $(LIB).so -g \
 				$(shell pkg-config --libs dbus-1) $(shell pkg-config --libs gio-2.0)
-SOURCES		=	src/WifiMaster.cpp src/wifi_extension.cpp src/wifi_instance.cpp src/wifi_api.cpp common/extension.cpp
+SOURCES		=	src/wifi_extension.cpp src/wifi_instance.cpp src/wifi_api.cpp common/extension.cpp
 OBJECTS		= $(SOURCES:.cpp=.o)
 
 all: $(LIB)

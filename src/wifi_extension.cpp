@@ -29,6 +29,8 @@ extern const char kSource_wifi_api[];
 
 WifiExtension::WifiExtension()
 {
+    const char* entry_points[] = { NULL };
+    SetExtraJSEntryPoints( entry_points );
     SetExtensionName( "tizen.wifi" );
     SetJavaScriptAPI( kSource_wifi_api );
     syslog( LOG_USER | LOG_DEBUG, "WifiExtension ctor" );

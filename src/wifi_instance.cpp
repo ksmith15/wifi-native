@@ -18,7 +18,7 @@
 
 #include "src/wifi_instance.h"
 #include "src/wifi_extension.h"
-#include "src/WifiMaster.h"
+//#include "src/WifiMaster.h"
 //#include "src/dbus_helpers.h"
 //#include "src/dbus_utils.h"
 
@@ -41,7 +41,15 @@ namespace {
 
 static char gResponse[20] = {0};
 
-static WifiMaster* WF_MASTER = 0;
+// static WifiMaster* WF_MASTER = 0;
+
+static void
+getPropertyValue( const char* key, GVariant* value, picojson::value::object& o )
+{
+    char* value_str = g_variant_print( value, true );
+    o[key] = picojson::value( value_str );
+    g_free( value_str );
+}
 
 WifiInstance::~WifiInstance()
 {
@@ -66,11 +74,11 @@ WifiInstance::~WifiInstance()
 void
 WifiInstance::initialize()
 {
-    WF_MASTER = WifiMaster::Create();
-    if ( ! WF_MASTER )
-    {
-        return;
-    }
+//    WF_MASTER = WifiMaster::Create();
+//    if ( ! WF_MASTER )
+//    {
+//        return;
+//    }
 
     g_dbus_proxy_new_for_bus( G_BUS_TYPE_SYSTEM,
             G_DBUS_PROXY_FLAGS_NONE,
@@ -144,6 +152,32 @@ WifiInstance::OnAgentProxyCreated( GObject*, GAsyncResult* result )
 
     g_signal_connect( agent_proxy_, "g-properties-changed", G_CALLBACK( WifiInstance::OnPropertiesChanged ), this );
     g_strfreev( properties );
+}
+
+void
+WifiInstance::OnPropertiesChanged( GDBusProxy* proxy, GVariant* changed_properties,
+                                   const gchar* const* invalidated_properties,
+                                   gpointer user_data )
+{
+    const char* interface = g_dbus_proxy_get_interface_name( proxy );
+    WifiInstance* handler = reinterpret_cast<WifiInstance*>(user_data);
+
+    if ( g_variant_n_children( changed_properties ) > 0 )
+    {
+        GVariantIter* iter;
+        g_variant_get( changed_properties, "a{sv}", &iter );
+
+        const gchar* key;
+        GVariant* value;
+        picojson::value::object o;
+        while( g_variant_iter_loop( iter, "{&sv}", &key, &value ))
+        {
+            getPropertyValue( key, value, o );
+        }
+
+        picojson::value v( o );
+        handler->InternalPostMessage( v );
+    }
 }
 
 void
@@ -285,7 +319,8 @@ WifiInstance::HandleScan( const picojson::value& message )
 int
 WifiInstance::GetScanResults()
 {
-    return WF_MASTER->GetServices();
+//    return WF_MASTER->GetServices();
+    return 0;
 }
 
 void
