@@ -1,0 +1,4 @@
+build/
+src/wifi_api.cpp
+*.o
+*.so
