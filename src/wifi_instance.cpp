@@ -458,6 +458,9 @@ WifiInstance::InternalPostMessage( picojson::value v )
         msg_queue_.push_back( v );
         return;
     }
+
+    FlushPendingMessages();
+    PostMessage( v.serialize().c_str() );
 }
 
 void
