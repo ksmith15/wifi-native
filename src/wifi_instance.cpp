@@ -25,6 +25,8 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <syslog.h>
+// wifi_extension.cpp:    syslog( LOG_USER | LOG_DEBUG, "WifiExtension ctor" );
 
 using std::cout;
 using std::endl;
@@ -440,19 +442,24 @@ WifiInstance::GetDefaultReply()
 void
 WifiInstance::FlushPendingMessages()
 {
+    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::FlushPendingMessages entry" );
     if ( !msg_queue_.empty() )
     {
         MessageQueue::iterator it;
         for ( it = msg_queue_.begin(); it != msg_queue_.end(); ++it )
         {
+            syslog( LOG_USER | LOG_DEBUG, "WifiInstance::FlushPendingMessages msg = %s",
+                    (*it).serialize().c_str() );
             PostMessage( (*it).serialize().c_str() );
         }
     }
+    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::FlushPendingMessages exit" );
 }
 
 void
 WifiInstance::InternalPostMessage( picojson::value v )
 {
+    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::InternalPostMessage entry" );
     if ( !is_js_context_initialized_ )
     {
         msg_queue_.push_back( v );
@@ -461,6 +468,7 @@ WifiInstance::InternalPostMessage( picojson::value v )
 
     FlushPendingMessages();
     PostMessage( v.serialize().c_str() );
+    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::InternalPostMessage exit" );
 }
 
 void
