@@ -71,6 +71,7 @@ WifiInstance::~WifiInstance()
     {
         g_object_unref( agent_proxy_ );
     }
+    closelog();
 }
 
 void
@@ -82,6 +83,7 @@ WifiInstance::initialize()
 //        return;
 //    }
 
+    openlog( "wifi_ext", LOG_PID, LOG_USER );
     g_dbus_proxy_new_for_bus( G_BUS_TYPE_SYSTEM,
             G_DBUS_PROXY_FLAGS_NONE,
             NULL,
@@ -134,7 +136,7 @@ WifiInstance::OnAgentProxyCreated( GObject*, GAsyncResult* result )
     agent_proxy_ = g_dbus_proxy_new_for_bus_finish( result, &error );
     if ( !agent_proxy_ )
     {
-        g_printerr( "## agent_proxy_ creation error: %s\n", error->message );
+        syslog( LOG_ERR, "## agent_proxy_ creation error: %s\n", error->message );
         g_error_free( error );
         return;
     }
@@ -190,7 +192,7 @@ WifiInstance::OnManagerProxyCreated( GObject*, GAsyncResult* result )
     if ( !manager_proxy_ )
     {
         GetDefaultReply();
-        g_printerr( "\n\n## manager_proxy_ creation error: %s\n", error->message );
+        syslog( LOG_ERR, "## manager_proxy_ creation error: %s", error->message );
         g_error_free( error );
         return;
     }
@@ -205,7 +207,7 @@ WifiInstance::OnServiceProxyCreated( GObject*, GAsyncResult* result )
     if ( !agent_proxy_ )
     {
         GetDefaultReply();
-        g_printerr( "\n\n## service_proxy_ creation error: %s\n", error->message );
+        syslog( LOG_ERR, "## service_proxy_ creation error: %s", error->message );
         g_error_free( error );
         return;
     }
@@ -220,7 +222,7 @@ WifiInstance::OnTechnologyProxyCreated( GObject*, GAsyncResult* result )
     if ( !tech_proxy_ )
     {
         GetDefaultReply();
-        g_printerr( "\n\n## tech_proxy_ creation error: %s\n", error->message );
+        syslog( LOG_ERR, "## tech_proxy_ creation error: %s", error->message );
         g_error_free( error );
         return;
     }
@@ -352,7 +354,7 @@ WifiInstance::OnGetServices( GObject* object, GAsyncResult* result )
     if ( !fin_result )
     {
         GetDefaultReply();
-        g_printerr( "\n\nError GetServices: %s\n", error->message );
+        syslog( LOG_DEBUG, "Error GetServices: %s", error->message );
         g_error_free( error );
         return;
     }
@@ -442,24 +444,24 @@ WifiInstance::GetDefaultReply()
 void
 WifiInstance::FlushPendingMessages()
 {
-    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::FlushPendingMessages entry" );
+    syslog( LOG_DEBUG, "WifiInstance::FlushPendingMessages entry" );
     if ( !msg_queue_.empty() )
     {
         MessageQueue::iterator it;
         for ( it = msg_queue_.begin(); it != msg_queue_.end(); ++it )
         {
-            syslog( LOG_USER | LOG_DEBUG, "WifiInstance::FlushPendingMessages msg = %s",
+            syslog( LOG_DEBUG, "WifiInstance::FlushPendingMessages msg = %s",
                     (*it).serialize().c_str() );
             PostMessage( (*it).serialize().c_str() );
         }
     }
-    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::FlushPendingMessages exit" );
+    syslog( LOG_DEBUG, "WifiInstance::FlushPendingMessages exit" );
 }
 
 void
 WifiInstance::InternalPostMessage( picojson::value v )
 {
-    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::InternalPostMessage entry" );
+    syslog( LOG_DEBUG, "WifiInstance::InternalPostMessage entry" );
     if ( !is_js_context_initialized_ )
     {
         msg_queue_.push_back( v );
@@ -468,7 +470,7 @@ WifiInstance::InternalPostMessage( picojson::value v )
 
     FlushPendingMessages();
     PostMessage( v.serialize().c_str() );
-    syslog( LOG_USER | LOG_DEBUG, "WifiInstance::InternalPostMessage exit" );
+    syslog( LOG_DEBUG, "WifiInstance::InternalPostMessage exit" );
 }
 
 void
